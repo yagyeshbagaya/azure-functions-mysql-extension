@@ -1,0 +1,55 @@
+
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # REQUIRED: install .NET (respects global.json if present)
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # REQUIRED: authenticate to Azure Artifacts feed
+      - name: Authenticate to Azure Artifacts
+        uses: NuGet/Authenticate@v1
+        with:
+          nuget-config-path: nuget.config
+
+      # REQUIRED: Initialize CodeQL (disable autobuild)
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          build-mode: manual
+
+      # 🔧 MANUAL BUILD STEPS HERE
+      - name: Restore
+        run: dotnet restore WebJobs.Extensions.MySql.sln --configfile nuget.config
+
+      - name: Build
+        run: dotnet build WebJobs.Extensions.MySql.sln --configuration Release --no-restore
+
+      # optional
+      # - name: Test
+      #   run: dotnet test WebJobs.Extensions.MySql.sln --configuration Release --no-build
+
+      # Analyze with CodeQL
+      - name: Perform CodeQL Analysis
