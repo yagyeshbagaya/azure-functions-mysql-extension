@@ -1,0 +1,42 @@
+
+name: OneBranch Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout Repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install .NET SDK (auto‑respects global.json)
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # 3. Authenticate with Azure Artifacts feed
+      - name: Authenticate to Azure Artifacts
+        uses: NuGet/Authenticate@v1
+        with:
+          nuget-config-path: nuget.config
+
+      # 4. Restore dependencies
+      - name: Restore NuGet packages
+        run: dotnet restore WebJobs.Extensions.MySql.sln --configfile nuget.config
+
+      # 5. Build
+      - name: Build solution
+        run: dotnet build WebJobs.Extensions.MySql.sln --configuration Release --no-restore
