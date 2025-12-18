@@ -24,8 +24,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Samples.OutputBindingSamples
             HttpRequest req,
             [MySql("ProductsWithIdentity", "MySqlConnectionString")] out ProductWithoutId[] products)
         {
-            products = new[]
-            {
+            products = {
                 new ProductWithoutId
                 {
                     Name = "Cup",

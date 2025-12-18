@@ -17,6 +17,7 @@ namespace Microsoft.Azure.Functions.Worker.Extensions.MySql
         /// <param name="connectionStringSetting">The name of the app setting where the MySql connection string is stored</param>
         /// <param name="commandType">Specifies whether <see cref="CommandText"/> refers to a stored procedure or MySql query string. Defaults to <see cref="CommandType.Text"/></param>
         /// <param name="parameters">Optional - Specifies the parameters that will be used to execute the MySql query or stored procedure. See <see cref="Parameters"/> for more details.</param>
+#pragma warning disable IDE0290
         public MySqlInputAttribute(string commandText, string connectionStringSetting, CommandType commandType = CommandType.Text, string parameters = null)
         {
             this.CommandText = commandText ?? throw new ArgumentNullException(nameof(commandText));
@@ -24,6 +25,7 @@ namespace Microsoft.Azure.Functions.Worker.Extensions.MySql
             this.CommandType = commandType;
             this.Parameters = parameters;
         }
+#pragma warning restore IDE0290
 
         /// <summary>
         /// Creates an instance of the <see cref="MySqlInputAttribute"/>, which takes a MySql query or stored procedure to run and returns the output to the function.

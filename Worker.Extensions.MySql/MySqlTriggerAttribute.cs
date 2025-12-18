@@ -14,12 +14,14 @@ namespace Microsoft.Azure.Functions.Worker.Extensions.MySql
         /// <param name="tableName">Name of the table to watch for changes.</param>
         /// <param name="connectionStringSetting">The name of the app setting where the MySQL connection string is stored</param>
         /// <param name="leasesTableName">Optional - The name of the table used to store leases. If not specified, the leases table name will be Leases_{FunctionId}_{TableId}</param>
+#pragma warning disable IDE0290
         public MySqlTriggerAttribute(string tableName, string connectionStringSetting, string leasesTableName = null)
         {
             this.TableName = tableName ?? throw new ArgumentNullException(nameof(tableName));
             this.ConnectionStringSetting = connectionStringSetting ?? throw new ArgumentNullException(nameof(connectionStringSetting));
             this.LeasesTableName = leasesTableName;
         }
+#pragma warning restore IDE0290
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MySqlTriggerAttribute"/> class with null value for LeasesTableName.
