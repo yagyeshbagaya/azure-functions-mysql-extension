@@ -14,11 +14,13 @@ namespace Microsoft.Azure.Functions.Worker.Extensions.MySql
         /// </summary>
         /// <param name="commandText">The table name to upsert the values to.</param>
         /// <param name="connectionStringSetting">The name of the app setting where the MySql connection string is stored</param>
+#pragma warning disable IDE0290
         public MySqlOutputAttribute(string commandText, string connectionStringSetting)
         {
             this.CommandText = commandText ?? throw new ArgumentNullException(nameof(commandText));
             this.ConnectionStringSetting = connectionStringSetting ?? throw new ArgumentNullException(nameof(connectionStringSetting));
         }
+#pragma warning restore IDE0290
 
         /// <summary>
         /// The name of the app setting where the MySql connection string is stored

@@ -14,11 +14,13 @@ namespace Microsoft.Azure.Functions.Worker.Extensions.MySql
         /// </summary>
         /// <param name="operation">Change operation</param>
         /// <param name="item">POCO representing the row in the user table on which the change operation took place</param>
+#pragma warning disable IDE0290
         public MySqlChange(MySqlChangeOperation operation, T item)
         {
             this.Operation = operation;
             this.Item = item;
         }
+#pragma warning restore IDE0290
 
         /// <summary>
         /// Change operation (insert or update).
