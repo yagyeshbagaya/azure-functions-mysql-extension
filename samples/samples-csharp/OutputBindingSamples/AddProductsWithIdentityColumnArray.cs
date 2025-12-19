@@ -24,7 +24,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Samples.OutputBindingSamples
             HttpRequest req,
             [MySql("ProductsWithIdentity", "MySqlConnectionString")] out ProductWithoutId[] products)
         {
-            products = {
+#pragma warning disable IDE0300
+            products = new[]
+            {
                 new ProductWithoutId
                 {
                     Name = "Cup",
@@ -36,6 +38,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Samples.OutputBindingSamples
                     Cost = 12
                 }
             };
+#pragma warning restore IDE0300
             return new CreatedResult($"/api/addproductswithidentitycolumnarray", products);
         }
     }
