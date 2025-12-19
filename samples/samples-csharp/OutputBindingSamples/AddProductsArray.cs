@@ -18,9 +18,10 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Samples.OutputBindingSamples
         {
             // Upsert the products, which will insert them into the Products table if the primary key (ProductId) for that item doesn't exist. 
             // If it does then update it to have the new name and cost
-            #pragma warning disable IDE0305
+#pragma warning disable IDE0305
             output = products.ToArray();
-            #pragma warning restore IDE0305
+#pragma warning restore IDE0305
+
             return new CreatedResult($"/api/addproducts-array", output);
         }
     }
