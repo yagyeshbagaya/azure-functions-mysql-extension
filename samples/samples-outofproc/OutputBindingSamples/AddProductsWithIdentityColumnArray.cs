@@ -24,6 +24,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.SamplesOutOfProc.OutputBindin
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")]
             HttpRequestData req)
         {
+#pragma warning disable IDE0300
             ProductWithoutId[] products = new[]
             {
                 new ProductWithoutId
@@ -37,6 +38,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.SamplesOutOfProc.OutputBindin
                     Cost = 12
                 }
             };
+#pragma warning restore IDE0300
             return products;
         }
     }
