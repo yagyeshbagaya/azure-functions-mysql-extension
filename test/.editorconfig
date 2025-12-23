@@ -11,3 +11,13 @@ dotnet_diagnostic.CS0659.severity = silent # overrides Object.Equals but does no
 dotnet_diagnostic.CA1711.severity = silent # Identifiers should not have incorrect suffix - Fine for tests
 dotnet_diagnostic.CA1825.severity = silent # Avoid zero-length array allocations
 dotnet_diagnostic.xUnit1004.severity = silent # xUnit1004: Test methods should not be skipped
+# Use collection initializers or expressions 
+dotnet_diagnostic.IDE0028.severity = none
+dotnet_diagnostic.IDE0300.severity = none
+dotnet_diagnostic.IDE0063.severity = none
+dotnet_diagnostic.IDE0290.severity = none
+dotnet_diagnostic.IDE0305.severity = none
+dotnet_diagnostic.IDE0031.severity = none
+dotnet_diagnostic.IDE0003.severity = none
+dotnet_diagnostic.IDE0009.severity = none
+dotnet_diagnostic.CA1510.severity = none
