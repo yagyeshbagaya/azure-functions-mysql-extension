@@ -20,10 +20,10 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Integration
             JsonConvert.DefaultSettings = () => new JsonSerializerSettings
             {
                 Formatting = Formatting.Indented,
-                TypeNameHandling = TypeNameHandling.Objects,
                 ContractResolver = new CamelCasePropertyNamesContractResolver()
             };
 #pragma warning restore CA2327
+            JsonConvert.DefaultSettings = () => settings;
         }
     }
 }
