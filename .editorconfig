@@ -20,6 +20,17 @@ dotnet_diagnostic.CA1805.severity = none
 # Documentation related warnings, remove once they are fixed
 dotnet_diagnostic.CS1591.severity = none
 
+# Use collection initializers or expressions 
+dotnet_diagnostic.IDE0028.severity = none
+dotnet_diagnostic.IDE0300.severity = none
+dotnet_diagnostic.IDE0063.severity = none
+dotnet_diagnostic.IDE0290.severity = none
+dotnet_diagnostic.IDE0305.severity = none
+dotnet_diagnostic.IDE0031.severity = none
+dotnet_diagnostic.IDE0003.severity = none
+dotnet_diagnostic.IDE0009.severity = none
+dotnet_diagnostic.CA1510.severity = none
+
 #### Core EditorConfig Options ####
 
 # Indentation and spacing
