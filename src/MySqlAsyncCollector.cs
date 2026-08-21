@@ -318,8 +318,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                 // If the value type is String
                 else if (jsonRowData[colName].Type == JTokenType.String)
                 {
-                    // add single quote for string values
-                    colVal = "'" + colVal + "'";
+                    // Escape any single quotes/backslashes and wrap the value in quotes to
+                    // prevent SQL injection from attacker-controlled string values.
+                    colVal = colVal.AsSingleQuotedString();
                 }
 
                 colValues.Add(colVal);

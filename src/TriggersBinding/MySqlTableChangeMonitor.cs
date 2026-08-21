@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -700,7 +701,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         {
             //the default values of attemptCount column, default value of LeaseExpirationTime column
             string lastColumnValues = $"{InitialValueAttemptCount}, DATE_ADD({MYSQL_FUNC_CURRENTTIME}, INTERVAL {LeaseIntervalInSeconds} SECOND)";
-            IEnumerable<string> rowData = rows.Select(row => $"( {string.Join(", ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"'{kp.Value}'"))}, {lastColumnValues} )");
+            IEnumerable<string> rowData = rows.Select(row => $"( {string.Join(", ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"'{Convert.ToString(kp.Value, CultureInfo.InvariantCulture).AsSingleQuoteEscapedString()}'"))}, {lastColumnValues} )");
             string rowDataCombined = string.Join(", ", rowData);
 
             return rowDataCombined;
@@ -740,7 +741,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         /// <returns>The SqlCommand populated with the query and appropriate parameters</returns>
         private MySqlCommand BuildRenewLeasesCommand(MySqlConnection connection, MySqlTransaction transaction)
         {
-            IEnumerable<string> listMatchCondition = this._rowsToProcess.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = '{kp.Value}'"))} )");
+            IEnumerable<string> listMatchCondition = this._rowsToProcess.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = '{Convert.ToString(kp.Value, CultureInfo.InvariantCulture).AsSingleQuoteEscapedString()}'"))} )");
 
             string combinedMatchConditions = string.Join(" OR ", listMatchCondition);
 
@@ -764,7 +765,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         /// <returns>The SqlCommand populated with the query and appropriate parameters</returns>
         private MySqlCommand BuildReleaseLeasesCommand(MySqlConnection connection, MySqlTransaction transaction)
         {
-            IEnumerable<string> listMatchCondition = this._rowsToRelease.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = '{kp.Value}'"))} )");
+            IEnumerable<string> listMatchCondition = this._rowsToRelease.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = '{Convert.ToString(kp.Value, CultureInfo.InvariantCulture).AsSingleQuoteEscapedString()}'"))} )");
 
             string combinedMatchConditions = string.Join(" OR ", listMatchCondition);
 
