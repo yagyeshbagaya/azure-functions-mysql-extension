@@ -10,12 +10,60 @@ using Microsoft.Azure.WebJobs.Host.Triggers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
+using MySql.Data.MySqlClient;
 using Xunit;
 
 namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Unit
 {
     public class MySqlTriggerBindingProviderTests
     {
+        /// <summary>
+        /// Verifies that <see cref="MySqlTableChangeMonitor{T}"/> binds primary-key values used in the
+        /// lease statements as parameters (placeholders "@pk0", "@pk1", ...) rather than interpolating
+        /// them into SQL. This is the fix for the CWE-89 second-order SQL injection (MSRC 138520):
+        /// even an attacker-controlled primary-key value is stored as data and can never execute.
+        /// </summary>
+        [Theory]
+        [InlineData("42")]
+        [InlineData("A123")]
+        // A stored primary-key value carrying a SQL payload (the MSRC second-order injection vector).
+        [InlineData("x'); SELECT SLEEP(3); -- ")]
+        public void AddPrimaryKeyParameter_ReturnsPlaceholderAndBindsValueVerbatim(object value)
+        {
+            var parameters = new List<MySqlParameter>();
+            MethodInfo method = typeof(MySqlTableChangeMonitor<object>)
+                .GetMethod("AddPrimaryKeyParameter", BindingFlags.NonPublic | BindingFlags.Static);
+
+            string first = (string)method.Invoke(null, new object[] { parameters, value });
+            string second = (string)method.Invoke(null, new object[] { parameters, value });
+
+            // Unique, sequential placeholders are emitted into the SQL - never the literal value.
+            Assert.Equal("@pk0", first);
+            Assert.Equal("@pk1", second);
+            Assert.Equal(2, parameters.Count);
+            // The (possibly malicious) value is bound verbatim as a parameter - stored as data, never executed as SQL.
+            Assert.Equal(value, parameters[0].Value);
+            Assert.Equal(value, parameters[1].Value);
+        }
+
+        /// <summary>
+        /// Verifies a null primary-key value is bound as SQL NULL (DBNull) rather than throwing or
+        /// being interpolated.
+        /// </summary>
+        [Fact]
+        public void AddPrimaryKeyParameter_NullValue_BindsDbNull()
+        {
+            var parameters = new List<MySqlParameter>();
+            MethodInfo method = typeof(MySqlTableChangeMonitor<object>)
+                .GetMethod("AddPrimaryKeyParameter", BindingFlags.NonPublic | BindingFlags.Static);
+
+            string parameterName = (string)method.Invoke(null, new object[] { parameters, null });
+
+            Assert.Equal("@pk0", parameterName);
+            Assert.Single(parameters);
+            Assert.Equal(DBNull.Value, parameters[0].Value);
+        }
+
         /// <summary>
         /// Verifies that null trigger binding is returned if the trigger parameter in user function does not have
         /// <see cref="MySqlTriggerAttribute"/> applied.

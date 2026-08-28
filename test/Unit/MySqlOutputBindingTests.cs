@@ -8,6 +8,7 @@ using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
+using MySql.Data.MySqlClient;
 using Xunit;
 
 namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Unit
@@ -151,14 +152,13 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Unit
         }
 
         [Theory]
-        // Ordinary string values are wrapped in quotes.
-        [InlineData("Widget", "(1, 'Widget')")]
-        // A legitimate apostrophe is escaped (previously this broke the INSERT).
-        [InlineData("O'Brien", "(1, 'O\\'Brien')")]
-        // The CWE-89 payload is neutralized: it stays inside the string literal, so the
-        // generated VALUES fragment contains a single, safe value - no stacked DELETE.
-        [InlineData("x', 9.99); DELETE FROM Products WHERE Cost > 100; -- ", "(1, 'x\\', 9.99); DELETE FROM Products WHERE Cost > 100; -- ')")]
-        public void TestGetColValuesForUpsertEscapesStringValues(string name, string expectedFragment)
+        // Ordinary value.
+        [InlineData("Widget")]
+        // A legitimate apostrophe is bound as-is (no escaping needed, no broken SQL).
+        [InlineData("O'Brien")]
+        // The CWE-89 payload is bound verbatim as a parameter, so it can never execute as SQL.
+        [InlineData("x', 9.99); DELETE FROM Products WHERE Cost > 100; -- ")]
+        public void TestGetColValuesForUpsertParameterizesStringValues(string name)
         {
             // Arrange: build the TableInformation the collector needs (ProductId + Name columns).
             var columns = new Dictionary<string, string>
@@ -174,6 +174,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Unit
                 primaryKeys, primaryKeyProperties, columns, hasIdentityColumnPrimaryKeys: true);
 
             var row = new UpsertTestProduct { ProductId = 1, Name = name };
+            var parameters = new List<MySqlParameter>();
 
             // GetColValuesForUpsert is private static; invoke it via reflection to test the real fix.
             MethodInfo method = typeof(MySqlAsyncCollector<UpsertTestProduct>)
@@ -182,10 +183,16 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Unit
             // Act
             string result = (string)method.Invoke(
                 null,
-                new object[] { row, tableInfo, new[] { "ProductId", "Name" } });
+                new object[] { row, tableInfo, new[] { "ProductId", "Name" }, parameters });
 
-            // Assert: the generated VALUES fragment has the string value escaped and quoted.
-            Assert.Equal(expectedFragment, result);
+            // Assert: the generated VALUES fragment contains only parameter placeholders - no literal data,
+            // so an attacker-controlled value cannot break out of the SQL.
+            Assert.Equal("(@p0, @p1)", result);
+            Assert.Equal(2, parameters.Count);
+            // ProductId is bound as its numeric value.
+            Assert.Equal(1L, (long)parameters[0].Value);
+            // The (possibly malicious) name is bound verbatim - stored as data, never executed as SQL.
+            Assert.Equal(name, parameters[1].Value);
         }
     }
 }

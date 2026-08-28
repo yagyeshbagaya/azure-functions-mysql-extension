@@ -232,8 +232,11 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                     foreach (IEnumerable<T> batch in rows.Batch(batchSize))
                     {
                         batchCount++;
-                        GenerateDataQueryForMerge(tableInfo, batch, columnNamesFromItem, out string newDataQuery);
+                        var parameters = new List<MySqlParameter>();
+                        GenerateDataQueryForMerge(tableInfo, batch, columnNamesFromItem, out string newDataQuery, parameters);
                         command.CommandText = $"{insertQuery} {newDataQuery} {duplicateUpdateQuery};";
+                        command.Parameters.Clear();
+                        command.Parameters.AddRange(parameters.ToArray());
 
                         await command.ExecuteNonQueryAsyncWithLogging(this._logger, CancellationToken.None, true);
                     }
@@ -296,37 +299,30 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
             return typeof(T).GetProperties().Select(prop => prop.Name);
         }
 
-        private static string GetColValuesForUpsert(T row, TableInformation table, IEnumerable<string> columnNamesFromItem)
+        private static string GetColValuesForUpsert(T row, TableInformation table, IEnumerable<string> columnNamesFromItem, IList<MySqlParameter> parameters)
         {
             //build a string of column data
             string jsonRowDataInString = Utils.JsonSerializeObject(row, table.JsonSerializerSettings);
             var jsonRowData = JObject.Parse(jsonRowDataInString);
 
-            //to store temproraly, the values of each property in each row
-            var colValues = new List<string>();
+            //to store the parameter placeholders for the values of each property in each row
+            var colValuePlaceholders = new List<string>();
 
             foreach (string colName in columnNamesFromItem)
             {
                 //find the col value in jsonRowData, to the respecting column name
-                string colVal = jsonRowData[colName].ToString();
+                JToken token = jsonRowData[colName];
+                string colVal = token?.ToString();
 
-                //If column values is empty
-                if (string.IsNullOrEmpty(colVal))
-                {
-                    colVal = "null";
-                }
-                // If the value type is String
-                else if (jsonRowData[colName].Type == JTokenType.String)
-                {
-                    // Escape any single quotes/backslashes and wrap the value in quotes to
-                    // prevent SQL injection from attacker-controlled string values.
-                    colVal = colVal.AsSingleQuotedString();
-                }
+                // Treat null/empty values as SQL NULL (preserves previous behavior); otherwise bind the
+                // value as a parameter so attacker-controlled data can never be executed as SQL (CWE-89).
+                object parameterValue = string.IsNullOrEmpty(colVal) ? DBNull.Value : token.ToObject<object>();
 
-                colValues.Add(colVal);
-
+                string parameterName = $"@p{parameters.Count}";
+                parameters.Add(new MySqlParameter(parameterName, parameterValue));
+                colValuePlaceholders.Add(parameterName);
             }
-            string joinedColValues = '(' + string.Join(", ", colValues) + ")";
+            string joinedColValues = '(' + string.Join(", ", colValuePlaceholders) + ")";
             return joinedColValues;
         }
 
@@ -338,8 +334,9 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         /// <param name="rows">Rows to be upserted</param>
         /// <param name="columnNamesFromItem">column list to be upserted</param>
         /// <param name="newDataQuery">Generated T-MySQL data query</param>
+        /// <param name="parameters">Collection that receives one parameter per upserted value</param>
         /// <returns>T-MySQL containing data for merge</returns>
-        private static void GenerateDataQueryForMerge(TableInformation table, IEnumerable<T> rows, IEnumerable<string> columnNamesFromItem, out string newDataQuery)
+        private static void GenerateDataQueryForMerge(TableInformation table, IEnumerable<T> rows, IEnumerable<string> columnNamesFromItem, out string newDataQuery, IList<MySqlParameter> parameters)
         {
             // to store rows data in List of string 
             IList<string> rowsValuesToUpsert = new List<string>();
@@ -355,7 +352,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                     {
                         // If the table has an identity column as a primary key then
                         // all rows are guaranteed to be unique so we can insert them all
-                        rowsValuesToUpsert.Add(GetColValuesForUpsert(row, table, columnNamesFromItem));
+                        rowsValuesToUpsert.Add(GetColValuesForUpsert(row, table, columnNamesFromItem, parameters));
                     }
                     else
                     {
@@ -379,7 +376,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                         if (uniqueUpdatedPrimaryKeys.Add(combinedPrimaryKeyStr))
                         {
                             //add a column values of a single row
-                            rowsValuesToUpsert.Add(GetColValuesForUpsert(row, table, columnNamesFromItem));
+                            rowsValuesToUpsert.Add(GetColValuesForUpsert(row, table, columnNamesFromItem, parameters));
                         }
                     }
                 }
@@ -387,7 +384,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                 {
                     // ToDo: add check for duplicate primary keys once we find a way to get primary keys.
                     //add column values of a single row
-                    rowsValuesToUpsert.Add(GetColValuesForUpsert(row, table, columnNamesFromItem));
+                    rowsValuesToUpsert.Add(GetColValuesForUpsert(row, table, columnNamesFromItem, parameters));
 
                 }
             }

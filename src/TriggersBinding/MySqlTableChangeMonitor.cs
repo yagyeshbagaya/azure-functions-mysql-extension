@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -693,15 +692,29 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         }
 
         /// <summary>
+        /// Adds a parameter for a primary-key value to <paramref name="parameters"/> and returns the
+        /// placeholder (e.g. "@pk0") to embed in the SQL. Primary-key values come from the watched
+        /// table's rows and are attacker-controllable, so they must be parameterized (never
+        /// interpolated) to prevent second-order SQL injection (CWE-89).
+        /// </summary>
+        private static string AddPrimaryKeyParameter(IList<MySqlParameter> parameters, object value)
+        {
+            string parameterName = $"@pk{parameters.Count}";
+            parameters.Add(new MySqlParameter(parameterName, value ?? DBNull.Value));
+            return parameterName;
+        }
+
+        /// <summary>
         /// arrange rows data into a values\insert format />).
         /// </summary>
         /// <param name="rows">Dictionary representing the table rows on which leases should be acquired</param>
-        /// <returns>The MySqlCommand populated with the query and appropriate parameters</returns>
-        private string BuildRowDataInValuesFormat(IReadOnlyList<IReadOnlyDictionary<string, object>> rows)
+        /// <param name="parameters">Collection that receives one parameter per primary-key value</param>
+        /// <returns>The values clause using parameter placeholders for the primary-key values</returns>
+        private string BuildRowDataInValuesFormat(IReadOnlyList<IReadOnlyDictionary<string, object>> rows, IList<MySqlParameter> parameters)
         {
             //the default values of attemptCount column, default value of LeaseExpirationTime column
             string lastColumnValues = $"{InitialValueAttemptCount}, DATE_ADD({MYSQL_FUNC_CURRENTTIME}, INTERVAL {LeaseIntervalInSeconds} SECOND)";
-            IEnumerable<string> rowData = rows.Select(row => $"( {string.Join(", ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"'{Convert.ToString(kp.Value, CultureInfo.InvariantCulture).AsSingleQuoteEscapedString()}'"))}, {lastColumnValues} )");
+            IEnumerable<string> rowData = rows.Select(row => $"( {string.Join(", ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => AddPrimaryKeyParameter(parameters, kp.Value)))}, {lastColumnValues} )");
             string rowDataCombined = string.Join(", ", rowData);
 
             return rowDataCombined;
@@ -718,7 +731,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         private MySqlCommand BuildAcquireLeasesCommand(MySqlConnection connection, MySqlTransaction transaction, IReadOnlyList<IReadOnlyDictionary<string, object>> rows)
         {
             string primaryKeys = string.Join(", ", this._primaryKeyColumnNames);
-            string rowDataFormatted = this.BuildRowDataInValuesFormat(rows);
+            var parameters = new List<MySqlParameter>();
+            string rowDataFormatted = this.BuildRowDataInValuesFormat(rows, parameters);
 
             string acquireLeasesQuery = $@" INSERT INTO {this._leasesTableName}
                                             ({primaryKeys}, {LeasesTableAttemptCountColumnName}, {LeasesTableLeaseExpirationTimeColumnName})
@@ -730,6 +744,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                                         ;";
 
             var acquireLeasesCommand = new MySqlCommand(acquireLeasesQuery, connection, transaction);
+            acquireLeasesCommand.Parameters.AddRange(parameters.ToArray());
             return acquireLeasesCommand;
         }
 
@@ -741,7 +756,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         /// <returns>The SqlCommand populated with the query and appropriate parameters</returns>
         private MySqlCommand BuildRenewLeasesCommand(MySqlConnection connection, MySqlTransaction transaction)
         {
-            IEnumerable<string> listMatchCondition = this._rowsToProcess.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = '{Convert.ToString(kp.Value, CultureInfo.InvariantCulture).AsSingleQuoteEscapedString()}'"))} )");
+            var parameters = new List<MySqlParameter>();
+            IEnumerable<string> listMatchCondition = this._rowsToProcess.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = {AddPrimaryKeyParameter(parameters, kp.Value)}"))} )");
 
             string combinedMatchConditions = string.Join(" OR ", listMatchCondition);
 
@@ -753,6 +769,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                                         ;";
 
             var renewLeasesCommand = new MySqlCommand(renewLeasesQuery, connection, transaction);
+            renewLeasesCommand.Parameters.AddRange(parameters.ToArray());
             return renewLeasesCommand;
         }
 
@@ -765,7 +782,8 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
         /// <returns>The SqlCommand populated with the query and appropriate parameters</returns>
         private MySqlCommand BuildReleaseLeasesCommand(MySqlConnection connection, MySqlTransaction transaction)
         {
-            IEnumerable<string> listMatchCondition = this._rowsToRelease.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = '{Convert.ToString(kp.Value, CultureInfo.InvariantCulture).AsSingleQuoteEscapedString()}'"))} )");
+            var parameters = new List<MySqlParameter>();
+            IEnumerable<string> listMatchCondition = this._rowsToRelease.Select(row => $"( {string.Join(" AND ", row.Where(kvp => this._primaryKeyColumnNames.Contains(kvp.Key)).Select(kp => $"{kp.Key} = {AddPrimaryKeyParameter(parameters, kp.Value)}"))} )");
 
             string combinedMatchConditions = string.Join(" OR ", listMatchCondition);
 
@@ -779,6 +797,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql
                                         ;";
 
             var releaseLeasesCommand = new MySqlCommand(releaseLeasesQuery, connection, transaction);
+            releaseLeasesCommand.Parameters.AddRange(parameters.ToArray());
             return releaseLeasesCommand;
         }
 
