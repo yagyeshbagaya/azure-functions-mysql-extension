@@ -220,8 +220,19 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Integration
         {
             int firstId = 1;
             int lastId = 5;
+            // Use a long polling interval so that each group of operations below (insert + updates) all
+            // occur within a single poll window. This makes the trigger report a single coalesced net
+            // change (the latest row state) instead of racing the default 1s poll and catching an
+            // intermediate state, which made this test flaky on slower/loaded CI agents.
+            const int pollingIntervalMs = 10000;
             this.SetChangeTrackingForTable("Products");
-            this.StartFunctionHost(nameof(ProductsTrigger), lang);
+            this.StartFunctionHost(
+                nameof(ProductsTrigger),
+                lang,
+                environmentVariables: new Dictionary<string, string>()
+                {
+                    { "MySql_Trigger_PollingIntervalMs", pollingIntervalMs.ToString() }
+                });
 
             // 1. Insert + multiple updates to a row are treated as single insert with latest row values.
             await this.WaitForProductChanges(
@@ -237,7 +248,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Integration
                 },
                 id => $"Updated Updated Product {id}",
                 id => id * 100,
-                this.GetBatchProcessingTimeout(firstId, lastId));
+                this.GetBatchProcessingTimeout(firstId, lastId, pollingIntervalMs: pollingIntervalMs));
 
             firstId = 6;
             lastId = 10;
@@ -254,7 +265,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Integration
                 },
                 id => $"Product {id}",
                 id => id * 100,
-                this.GetBatchProcessingTimeout(firstId, lastId));
+                this.GetBatchProcessingTimeout(firstId, lastId, pollingIntervalMs: pollingIntervalMs));
 
             firstId = 6;
             lastId = 10;
@@ -271,7 +282,7 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Integration
                 },
                 id => $"Updated Updated Product {id}",
                 id => id * 100,
-                this.GetBatchProcessingTimeout(firstId, lastId));
+                this.GetBatchProcessingTimeout(firstId, lastId, pollingIntervalMs: pollingIntervalMs));
         }
 
         /// <summary>
