@@ -220,11 +220,11 @@ namespace Microsoft.Azure.WebJobs.Extensions.MySql.Tests.Integration
         {
             int firstId = 1;
             int lastId = 5;
-            // Use a long polling interval so that each group of operations below (insert + updates) all
+            // Use a longer polling interval so that each group of operations below (insert + updates) all
             // occur within a single poll window. This makes the trigger report a single coalesced net
             // change (the latest row state) instead of racing the default 1s poll and catching an
             // intermediate state, which made this test flaky on slower/loaded CI agents.
-            const int pollingIntervalMs = 10000;
+            const int pollingIntervalMs = 5000;
             this.SetChangeTrackingForTable("Products");
             this.StartFunctionHost(
                 nameof(ProductsTrigger),
